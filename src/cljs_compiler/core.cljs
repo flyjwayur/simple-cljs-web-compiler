@@ -86,3 +86,52 @@
         (list 'cljs/compile   {:value s})
         (list 'js/eval        {:value s})
         (list 'clj/eval       {:value s})]))
+
+;; -----------------------------------------------------------------------------
+;; UI Component
+
+(defn input-ui [reconciler]
+  (dom/section nil
+    (dom/textarea #js {:autoFocus true
+                       :onChange #(process-input 
+                                    reconciler
+                                    (.. % -target -value))})))
+
+(defn compile-cljs-ui [{:keys [compilation]}]
+  (let [[status result] compilation]
+    (dom/section nil
+                 (dom/textarea #js {:value result
+                                    :readOnly true}))))
+
+(defn evaluate-clj-ui [{:keys [evaluation-clj]}]
+  (let [[status result] evaluation-clj]
+    (dom/section nil
+                 (dom/textarea #js {:value result
+                                    :readOnly true}))))
+
+(defn evaluate-js-ui [{:keys [evaluation-js]}]
+  (let [[status result] evaluation-js]
+    (dom/section nil
+                 (dom/textarea #js {:value result
+                                    :readOnly true}))))
+
+(defui CompilerUI
+  
+  static om/IQuery
+  (query [this] 
+    '[:compilation :evaluation-js :evaluation-clj])
+  
+  Object
+  (render [this]
+    (as->
+      (om/props this) $
+      (dom/div nil
+        (input-ui this)
+        (compile-cljs-ui $)
+        (evaluate-clj-ui $)
+        (evaluate-js-ui $)))))
+
+;; -----------------------------------------------------------------------------
+
+(om/add-root! reconciler
+              CompilerUI (gdom/getElement "app"))
