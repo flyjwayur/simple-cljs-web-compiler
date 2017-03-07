@@ -1,6 +1,9 @@
 (ns cljs_compiler.core
   (:require
-    [cljs.js :as cljs]))
+    [cljs.js :as cljs]
+    [goog.dom :as gdom]
+    [om.next :as om :refer-macros [defui]]
+    [om.dom :as dom]))
 
 ;; -----------------------------------------------------------------------------
 ;; Compiler functions
@@ -33,3 +36,53 @@
 (defn _evaluation-clj [s]
   (let [[status res] (_eval s)]
     [status (str res)]))
+
+;; -----------------------------------------------------------------------------
+
+(defonce app-state (atom
+  {:input ""
+   :compilation "" 
+   :evaluation-js "" 
+   :evaluation-clj ""}))
+
+;; -----------------------------------------------------------------------------
+;; Parsing
+
+(defn read [{:keys [state]} key params]
+  {:value (get @state key "")})
+
+(defmulti mutate om/dispatch)
+
+(defmethod mutate 'input/save [{:keys [state]} _ {:keys [value]}]
+  {:action (fn [] 
+            (swap! state assoc :input value))})
+
+(defmethod mutate 'cljs/compile [{:keys [state]} _ {:keys [value]}]
+  {:action (fn [] 
+            (swap! state update :compilation 
+              (partial _compilation value)))})
+
+(defmethod mutate 'js/eval [{:keys [state]} _ {:keys [value]}]
+  {:action (fn [] 
+            (swap! state update :evaluation-js 
+              (partial _evaluation-js value)))})
+
+(defmethod mutate 'clj/eval [{:keys [state]} _ {:keys [value]}]
+  {:action (fn [] 
+            (swap! state update :evaluation-clj 
+              (partial _evaluation-clj value)))})
+
+(def parser (om/parser {:read read 
+                        :mutate mutate}))
+
+(def reconciler 
+  (om/reconciler 
+    {:state app-state 
+     :parser parser}))
+
+(defn process-input [compiler s]
+  (om/transact! compiler 
+       [(list 'input/save     {:value s})
+        (list 'cljs/compile   {:value s})
+        (list 'js/eval        {:value s})
+        (list 'clj/eval       {:value s})]))
